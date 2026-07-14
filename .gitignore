@@ -3,5 +3,8 @@ build
 
 app.spec
 
+__pycache__
+
 test.xlsx
 test_processed.xlsx
+~$test.xlsx

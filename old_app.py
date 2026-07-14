@@ -1,28 +1,27 @@
-import openpyxl
-from openpyxl import load_workbook
-from openpyxl.utils import get_column_letter
-from openpyxl.formatting.rule import CellIsRule
-from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+import os
 from datetime import datetime
 from tkinter import Tk, filedialog
-import os
+
+from openpyxl import load_workbook
+from openpyxl.formatting.rule import CellIsRule
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
 
 Tk().withdraw()
 
 input_file = filedialog.askopenfilename(
-    title="Select Excel file",
-    filetypes=[("Excel files", "*.xlsx")]
+    title='Select Excel file', filetypes=[('Excel files', '*.xlsx')]
 )
 
 if not input_file:
-    print("No file selected.")
+    print('No file selected.')
     exit()
 
 wb = load_workbook(input_file)
 ws = wb.active
 
 # CLEANING
-if 'A3:C3' in ws.merged_cells: 
+if 'A3:C3' in ws.merged_cells:
     ws.unmerge_cells('A3:C3')
 
 if 'A1:C1' in ws.merged_cells:
@@ -62,9 +61,9 @@ desired_order = [
     'Marže % 2024-Y24',
     'Marže % 2025-Y25',
     'Marže % 2026-Y26',
-    "Množství 2024-Y24",
-    "Množství 2025-Y25",
-    "Množství 2026-Y26",
+    'Množství 2024-Y24',
+    'Množství 2025-Y25',
+    'Množství 2026-Y26',
     'Příjem obd. 2024-Y24',
     'Příjem obd. 2025-Y25',
     'Příjem obd. 2026-Y26',
@@ -82,7 +81,7 @@ desired_order = [
     'Objem celkem',
     'Poznámka',
     'Prim. dodavatel',
-    'EAN'
+    'EAN',
 ]
 
 data_rows = list(ws.iter_rows(min_row=2, max_row=ws.max_row))
@@ -93,12 +92,14 @@ old_sort_col_idx = current_columns.get(sort_col_name, [])
 
 if old_sort_col_idx:
     old_sort_col_idx = old_sort_col_idx[0]
+
     def get_sort_value(row):
         val = row[old_sort_col_idx - 1].value
-        try: 
+        try:
             return float(val) if val is not None else 0
         except ValueError:
             return 0
+
     sorted_data_rows = sorted(data_rows, key=get_sort_value, reverse=True)
 else:
     sorted_data_rows = data_rows
@@ -109,28 +110,35 @@ new_header_row = 2
 for new_col_idx, col_name in enumerate(desired_order, start=1):
     new_ws.cell(row=new_header_row, column=new_col_idx, value=col_name)
 
+
 # MAPPING FOR CALCULATIONS
 def find_col_letter(name):
     return get_column_letter(desired_order.index(name) + 1)
+
 
 l_sklad_vol = find_col_letter('Skladem volné')
 l_sum_zbyva = find_col_letter('Suma zbývá dodat')
 l_mnoz_2025 = find_col_letter('Množství 2025-Y25')
 l_order_ctn = find_col_letter('Order ctn')
-l_baleni_3  = find_col_letter('Balení 3')
-l_objem     = find_col_letter('Objem')
+l_baleni_3 = find_col_letter('Balení 3')
+l_objem = find_col_letter('Objem')
 
 for new_row_idx, row_cells in enumerate(sorted_data_rows, start=3):
     for new_col_idx, col_name in enumerate(desired_order, start=1):
         old_value = None
 
-        if col_name == 'Order ctn': 
+        if col_name == 'Order ctn':
             new_ws.cell(row=new_row_idx, column=new_col_idx, value=0)
         if col_name == 'Suma zbývá dodat':
             raw_del_indices = current_columns.get('Zbývá dodat ks', [])
             if raw_del_indices:
-                plus_components = [f"'{ws.title}'!{get_column_letter(idx)}{row_cells[0].row}" for idx in raw_del_indices]
-                new_ws.cell(row=new_row_idx, column=new_col_idx, value=f"={'+'.join(plus_components)}")
+                plus_components = [
+                    f"'{ws.title}'!{get_column_letter(idx)}{row_cells[0].row}"
+                    for idx in raw_del_indices
+                ]
+                new_ws.cell(
+                    row=new_row_idx, column=new_col_idx, value=f'={"+".join(plus_components)}'
+                )
             else:
                 new_ws.cell(row=new_row_idx, column=new_col_idx, value=0)
 
@@ -139,50 +147,62 @@ for new_row_idx, row_cells in enumerate(sorted_data_rows, start=3):
             if old_indices:
                 old_value = row_cells[old_indices[0] - 1].value
 
-                if col_name in ['Marže % 2024-Y24', 'Marže % 2025-Y25', 'Marže % 2026-Y26'] and isinstance(old_value, (int, float)):
+                if col_name in [
+                    'Marže % 2024-Y24',
+                    'Marže % 2025-Y25',
+                    'Marže % 2026-Y26',
+                ] and isinstance(old_value, (int, float)):
                     old_value = old_value / 100
 
             new_ws.cell(row=new_row_idx, column=new_col_idx, value=old_value)
 
-    new_ws.cell(row=new_row_idx, column=desired_order.index('(Skladem + zbývá dodat) / prodej 2025') + 1, 
-                    value=f'=IFERROR(({l_sklad_vol}{new_row_idx}+{l_sum_zbyva}{new_row_idx})/{l_mnoz_2025}{new_row_idx}, 0)')
-        
-    new_ws.cell(row=new_row_idx, column=desired_order.index('Order pcs') + 1, 
-                value=f'={l_order_ctn}{new_row_idx}*{l_baleni_3}{new_row_idx}')
-    
-    new_ws.cell(row=new_row_idx, column=desired_order.index('Objem celkem') + 1, 
-                value=f'={l_objem}{new_row_idx}*{l_order_ctn}{new_row_idx}')
+    new_ws.cell(
+        row=new_row_idx,
+        column=desired_order.index('(Skladem + zbývá dodat) / prodej 2025') + 1,
+        value=f'=IFERROR(({l_sklad_vol}{new_row_idx}+{l_sum_zbyva}{new_row_idx})/{l_mnoz_2025}{new_row_idx}, 0)',
+    )
+
+    new_ws.cell(
+        row=new_row_idx,
+        column=desired_order.index('Order pcs') + 1,
+        value=f'={l_order_ctn}{new_row_idx}*{l_baleni_3}{new_row_idx}',
+    )
+
+    new_ws.cell(
+        row=new_row_idx,
+        column=desired_order.index('Objem celkem') + 1,
+        value=f'={l_objem}{new_row_idx}*{l_order_ctn}{new_row_idx}',
+    )
 
 raw_delivery_indices = current_columns.get('Zbývá dodat ks', [])
 raw_date_indices = current_columns.get('Datum dodání z.', [])
 append_start_col = len(desired_order) + 1
 
 if raw_delivery_indices:
-        for d_idx, raw_qty_col in enumerate(raw_delivery_indices):
+    for d_idx, raw_qty_col in enumerate(raw_delivery_indices):
+        qty_col_idx = append_start_col + (d_idx * 2)
+        date_col_idx = qty_col_idx + 1
 
-            qty_col_idx = append_start_col + (d_idx * 2)
-            date_col_idx = qty_col_idx + 1
+        if d_idx < len(raw_date_indices):
+            raw_date_col = raw_date_indices[d_idx]
+        else:
+            raw_date_col = raw_qty_col + 1
 
-            if d_idx < len(raw_date_indices):
-                raw_date_col = raw_date_indices[d_idx]
-            else:
-                raw_date_col = raw_qty_col + 1
+        new_ws.cell(row=new_header_row, column=qty_col_idx, value=f'Zbyva dodat {d_idx + 1}')
+        new_ws.cell(row=new_header_row, column=date_col_idx, value=f'Datum dodáni {d_idx + 1}')
 
-            new_ws.cell(row=new_header_row, column=qty_col_idx, value=f"Zbyva dodat {d_idx+1}")
-            new_ws.cell(row=new_header_row, column=date_col_idx, value=f"Datum dodáni {d_idx+1}")
+        for r_idx, row_cells in enumerate(sorted_data_rows, start=3):
+            qty_val = row_cells[raw_qty_col - 1].value
 
-            for r_idx, row_cells in enumerate(sorted_data_rows, start=3):
-                qty_val = row_cells[raw_qty_col - 1].value
+            if qty_val == 0 or qty_val is None:
+                new_ws.cell(row=r_idx, column=qty_col_idx, value=None)
+                new_ws.cell(row=r_idx, column=date_col_idx, value=None)
+                continue
 
-                if qty_val == 0 or qty_val is None:
-                    new_ws.cell(row=r_idx, column=qty_col_idx, value=None)
-                    new_ws.cell(row=r_idx, column=date_col_idx, value=None)
-                    continue
-                
-                new_ws.cell(row=r_idx, column=qty_col_idx, value=qty_val)
+            new_ws.cell(row=r_idx, column=qty_col_idx, value=qty_val)
 
-                date_val = row_cells[raw_date_col - 1].value
-                new_ws.cell(row=r_idx, column=date_col_idx, value=date_val)
+            date_val = row_cells[raw_date_col - 1].value
+            new_ws.cell(row=r_idx, column=date_col_idx, value=date_val)
 
 objem_celkem_col_idx = desired_order.index('Objem celkem') + 1
 objem_letter = get_column_letter(objem_celkem_col_idx)
@@ -227,7 +247,7 @@ for col in new_ws.columns:
     for cell in col[2:]:
         if cell.value is not None:
             max_len = max(max_len, len(str(cell.value)))
-            
+
     new_ws.column_dimensions[col_letter].width = max(max_len + 3, 11)
 
     calculated_width = max_len + 3
@@ -242,7 +262,7 @@ for col in new_ws.columns:
     new_ws.column_dimensions[col_letter].width = final_width
 
 # COLORING
-for row_idx in range(1, new_ws.max_row + 1): 
+for row_idx in range(1, new_ws.max_row + 1):
     for col_idx in range(1, new_ws.max_column + 1):
         cell = new_ws.cell(row=row_idx, column=col_idx)
 
@@ -251,9 +271,9 @@ for row_idx in range(1, new_ws.max_row + 1):
         if 6 <= col_idx <= 8:
             cell.fill = COLORS['light_blue']
 
-        if 12 <= col_idx <=17:
+        if 12 <= col_idx <= 17:
             cell.fill = COLORS['soft_orange']
-        
+
         if 18 <= col_idx <= 20:
             cell.fill = COLORS['light_yellow']
 
@@ -263,20 +283,20 @@ for row_idx in range(1, new_ws.max_row + 1):
         if 28 <= col_idx <= 29:
             cell.fill = COLORS['yellow']
             cell.font = Font(name='Segoe UI', size=14, bold=True, color='ff3838')
-        
+
         if col_idx == 30:
             cell.fill = COLORS['violet']
             cell.font = Font(name='Segoe UI', size=10, bold=True, color='fbff1f')
-        
+
         if col_idx == 31:
             cell.fill = COLORS['blue']
             cell.font = Font(name='Segoe UI', size=10, bold=True, color='fbff1f')
 
 # CUSTOMS
-for row_idx in range(1, new_ws.max_row + 1): 
+for row_idx in range(1, new_ws.max_row + 1):
     for col_idx in range(1, new_ws.max_column + 1):
         cell = new_ws.cell(row=row_idx, column=col_idx)
-        
+
         cell.number_format = '###,##0.00'
 
         thin_side = Side(border_style='thin', color='242424')
@@ -293,13 +313,13 @@ for row_idx in range(1, new_ws.max_row + 1):
         if row_idx == 2:
             cell.font = header_font
             cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        
+
         if row_idx == 1:
             cell.fill = COLORS['light_green']
             cell.font = header_font
             cell.number_format = '0.00'
 
-        if row_idx == 1 and col_idx == 7: 
+        if row_idx == 1 and col_idx == 7:
             cell.value = 'RAZENO!'
             cell.fill = COLORS['yellow']
             cell.font = Font(name='Segoe UI', size=12, bold=True, color='ff3838')
@@ -307,11 +327,11 @@ for row_idx in range(1, new_ws.max_row + 1):
 
         if 16 <= col_idx <= 33 or col_idx == 10 or col_idx == 11:
             cell.number_format = '#,##0'
-            
-        if 15 <= col_idx <=17 or col_idx == 27:
+
+        if 15 <= col_idx <= 17 or col_idx == 27:
             cell.number_format = '0.0%'
-        
-        if row_idx == 1 and col_idx == 8: 
+
+        if row_idx == 1 and col_idx == 8:
             cell.value = datetime.now().date()
             cell.number_format = 'dd.mm.yyyy'
             cell.font = Font(name='Segoe UI', size=10, bold=True)
@@ -321,9 +341,8 @@ for row_idx in range(1, new_ws.max_row + 1):
             cell.number_format = '#,##0'
 
 sales_range = new_ws['E1:F1']
-for row in sales_range:   
+for row in sales_range:
     for cell in row:
-
         highlight_fill = PatternFill(start_color='a6d5ff', end_color='a6d5ff', fill_type='solid')
         highlight_font = Font(name='Segoe UI', size=12, bold=True)
 
@@ -333,25 +352,25 @@ for row in sales_range:
         if cell.column == 5:
             cell.value = 'Vic než:'
 
-        if cell.column == 6:        
+        if cell.column == 6:
             dynamic_rule = CellIsRule(
                 operator='greaterThan',
                 formula=['=$F$1'],
                 stopIfTrue=True,
                 fill=highlight_fill,
-                font=highlight_font
+                font=highlight_font,
             )
 
             sales_data_range = f'F3:H{new_ws.max_row}'
             new_ws.conditional_formatting.add(sales_data_range, dynamic_rule)
 
             cell.value = 'napiš tady'
-            cell.number_format = '#,##0'       
-    
+            cell.number_format = '#,##0'
+
 # TOTAL CBM
 total_cbm_range = new_ws['AB1:AC1']
 for row in total_cbm_range:
-    for cell in row: 
+    for cell in row:
         if cell.column == 29:
             cell.fill = COLORS['blue']
             cell.font = Font(name='Segoe UI', size=16, bold=True, color='fbff1f')
@@ -366,10 +385,10 @@ for row in total_cbm_range:
 folder = os.path.dirname(input_file)
 filename = os.path.splitext(os.path.basename(input_file))[0]
 
-output_file = os.path.join(folder, f"{filename}_processed.xlsx")
+output_file = os.path.join(folder, f'{filename}_processed.xlsx')
 
 wb.save(output_file)
 
-print(f"Saved to:\n{output_file}")
+print(f'Saved to:\n{output_file}')
 
 print('worked out')

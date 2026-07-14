@@ -16,6 +16,7 @@ select = [
 
 ignore = [
     "E501",
+    "F401"
 ]
 
 [tool.ruff.format]
