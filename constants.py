@@ -89,7 +89,8 @@ COLOR_HEX = {
     'soft_gray': 'd1d1d1',
     'soft_orange': 'ffd5bd',
     'soft_green': '94f7af',
-    'bestseller': 'ffd700',  # gold highlight for top-30 items
+    'green': '5af54c',
+    'bestseller': 'ffd700',
 }
 
 FONT_NAME = 'Segoe UI'

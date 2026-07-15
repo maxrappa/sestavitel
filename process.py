@@ -385,6 +385,7 @@ def _apply_styling(new_ws: Worksheet) -> None:
     _color_by_column_band(new_ws, base_font)
     _apply_number_formats_and_borders(new_ws, header_font)
     _style_threshold_row(new_ws)
+    _style_percent_row(new_ws)
     _style_total_cbm_cells(new_ws)
 
 
@@ -505,6 +506,30 @@ def _style_threshold_row(new_ws: Worksheet) -> None:
                 CellIsRule(
                     operator='greaterThan',
                     formula=['=$F$1'],
+                    stopIfTrue=True,
+                    fill=highlight_fill,
+                    font=highlight_font,
+                ),
+            )
+
+
+def _style_percent_row(new_ws: Worksheet) -> None:
+    highlight_fill = PatternFill(start_color='5af54c', end_color='5af54c', fill_type='solid')
+    highlight_font = Font(name=C.FONT_NAME, size=12, bold=True)
+
+    for cell in new_ws['Z1:AA1'][0]:
+        cell.fill = _fill('green')
+        cell.font = highlight_font
+        if cell.column == 26:
+            cell.value = 'Miň než:'
+        if cell.column == 27:
+            cell.value = 50 / 100
+            cell.number_format = '#,##0.0%'
+            new_ws.conditional_formatting.add(
+                f'AA3:AA{new_ws.max_row}',
+                CellIsRule(
+                    operator='lessThan',
+                    formula=['=$AA$1'],
                     stopIfTrue=True,
                     fill=highlight_fill,
                     font=highlight_font,
