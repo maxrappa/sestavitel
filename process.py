@@ -136,7 +136,7 @@ def _clean_source_sheet(ws: Worksheet) -> None:
     if 'A1:C1' in ws.merged_cells:
         ws.unmerge_cells('A1:C1')
 
-    if ws['B2'].value is None:
+    if not ws['B2'].value:
         ws.delete_rows(2, 2)
         ws.delete_rows(ws.max_row)
     ws['B1'] = 'Nazev'
