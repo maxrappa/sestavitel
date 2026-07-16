@@ -18,7 +18,7 @@ from datetime import datetime
 from tkinter import CENTER
 
 from openpyxl import Workbook, load_workbook
-from openpyxl.formatting.rule import CellIsRule
+from openpyxl.formatting.rule import CellIsRule, ColorScaleRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
@@ -136,8 +136,9 @@ def _clean_source_sheet(ws: Worksheet) -> None:
     if 'A1:C1' in ws.merged_cells:
         ws.unmerge_cells('A1:C1')
 
-    ws.delete_rows(2, 2)
-    ws.delete_rows(ws.max_row)
+    if ws['B2'].value is None:
+        ws.delete_rows(2, 2)
+        ws.delete_rows(ws.max_row)
     ws['B1'] = 'Nazev'
     ws['C1'] = 'Skupina'
 
@@ -387,6 +388,7 @@ def _apply_styling(new_ws: Worksheet) -> None:
     _style_threshold_row(new_ws)
     _style_percent_row(new_ws)
     _style_total_cbm_cells(new_ws)
+    _style_price_range(new_ws)
 
 
 def _autosize_columns(new_ws: Worksheet) -> None:
@@ -547,6 +549,21 @@ def _style_total_cbm_cells(new_ws: Worksheet) -> None:
         else:
             cell.font = Font(name=C.FONT_NAME, size=11, bold=True, color='fbff1f')
             cell.alignment = Alignment(horizontal='right', vertical='center')
+
+
+def _style_price_range(new_ws: Worksheet) -> None:
+    new_ws.conditional_formatting.add(
+        f'K3:K{new_ws.max_row}',
+        ColorScaleRule(
+            start_type='min',
+            start_color='FFFFFF',
+            mid_type='percentile',
+            mid_value=50,
+            mid_color='FFD6D6',
+            end_type='max',
+            end_color='FF6666',
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
